@@ -1,20 +1,11 @@
 import { Suspense } from "react";
 import { ShopCatalog } from "@/components/store/shop-catalog";
+import { ProductGridSkeleton } from "@/components/store/skeletons";
 import { getProducts } from "@/utils/actions/product.action";
 
 export const metadata = {
   title: "Shop · HNG Store",
 };
-
-function ShopFallback() {
-  return (
-    <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-      {Array.from({ length: 8 }).map((_, index) => (
-        <div key={index} className="aspect-[4/5] animate-pulse bg-store-mist" />
-      ))}
-    </div>
-  );
-}
 
 async function ShopResults() {
   try {
@@ -35,7 +26,7 @@ export default function ShopPage() {
         Filter by shelf or search by name. Prices stay in naira.
       </p>
       <div className="mt-8">
-        <Suspense fallback={<ShopFallback />}>
+        <Suspense fallback={<ProductGridSkeleton />}>
           <ShopResults />
         </Suspense>
       </div>

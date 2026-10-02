@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { AdminOrderTable } from "@/components/admin/order-table";
 import { parseOrderStatus } from "@/components/store/order-list";
 import { listAllOrders } from "@/lib/dal/orders";
+import { AdminTableSkeleton } from "@/components/store/skeletons";
 import { ServiceRoleNotice } from "@/components/admin/service-role-notice";
 import { hasServiceRole } from "@/lib/supabase/admin";
 
@@ -31,7 +32,7 @@ export default function AdminOrdersPage({
 }) {
   if (!hasServiceRole()) return <ServiceRoleNotice />;
   return (
-    <Suspense fallback={<p className="text-sm">Loading orders…</p>}>
+    <Suspense fallback={<AdminTableSkeleton />}>
       <Orders searchParams={searchParams} />
     </Suspense>
   );

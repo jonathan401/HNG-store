@@ -10,7 +10,7 @@ import { useCart, useCartLines } from "@/lib/store/cart";
 
 export function CartDrawer() {
   const lines = useCartLines();
-  const { ready, open, count, setOpen, setQuantity, removeItem } = useCart();
+  const { open, count, setOpen, setQuantity, removeItem } = useCart();
   const closeRef = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
   const previousPath = useRef(pathname);
@@ -54,7 +54,7 @@ export function CartDrawer() {
   if (!open) return null;
 
   const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
-  const itemCount = ready ? count : 0;
+  const itemCount = count;
 
   return (
     <div className="fixed inset-0 z-50">
@@ -86,7 +86,7 @@ export function CartDrawer() {
           </button>
         </div>
 
-        {!ready || lines.length === 0 ? (
+        {lines.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
             <p className="font-display text-3xl">Your bag is empty.</p>
             <p className="mt-3 max-w-xs text-sm text-store-ink/70">

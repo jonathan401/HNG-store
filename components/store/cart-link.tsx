@@ -4,8 +4,8 @@ import { ShoppingBag } from "lucide-react";
 import { useCart } from "@/lib/store/cart";
 
 export function CartLink() {
-  const { count, ready, setOpen } = useCart();
-  const shown = ready ? count : 0;
+  const { count, setOpen } = useCart();
+  const shown = count;
 
   return (
     <button

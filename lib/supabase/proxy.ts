@@ -51,6 +51,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/products") ||
     pathname.startsWith("/cart") ||
     pathname.startsWith("/checkout") ||
+    pathname.startsWith("/api/paystack/webhook") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/login");
 

@@ -1,7 +1,18 @@
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth";
 import { adjustStock } from "@/lib/dal/products";
+import { sendMail } from "@/lib/mail/nodemailer";
+import { orderMessage } from "@/lib/mail/messages";
+import { requestOrigin } from "@/lib/mail/origin";
+import {
+  initializePaystackTransaction,
+  isPaystackReference,
+  paystackSecret,
+  toKobo,
+  verifyPaystackTransaction,
+} from "@/lib/paystack";
 import { isNigerianCapital } from "@/lib/store/nigeria";
 import { deliveryFee } from "@/lib/store/products";
 import {
@@ -13,8 +24,8 @@ import {
   type OrderItemRecord,
   type OrderRecord,
   type OrderStatus,
-  type PaymentProvider,
   type PaymentRecord,
+  type PaymentStatus,
 } from "@/lib/dal/types";
 
 const orderSelect = `
@@ -179,13 +190,341 @@ type PlaceOrderInput = {
   address: string;
   city: string;
   note: string;
-  provider: PaymentProvider | null;
   items: { productId: string; quantity: number }[];
 };
 
+function paystackCallback(origin: string) {
+  return `${origin}/checkout/paystack`;
+}
+
+async function discardOrder(orderId: string) {
+  const admin = createAdminClient();
+  if (!admin) return;
+  await admin.from("payments").delete().eq("order_id", orderId);
+  await admin.from("order_items").delete().eq("order_id", orderId);
+  await admin.from("orders").delete().eq("id", orderId);
+}
+
+async function takeOrderStock(orderId: string) {
+  const admin = createAdminClient();
+  if (!admin) return;
+  const { data: items } = await admin
+    .from("order_items")
+    .select("product_id, quantity")
+    .eq("order_id", orderId);
+
+  for (const item of items ?? []) {
+    const productId = item.product_id as string | null;
+    if (!productId) continue;
+    const { data: product } = await admin
+      .from("products")
+      .select("stock")
+      .eq("id", productId)
+      .maybeSingle();
+    if (!product) continue;
+    await adjustStock(productId, Math.max(0, asInt(product.stock) - asInt(item.quantity)));
+  }
+}
+
+async function restoreOrderStock(orderId: string) {
+  const admin = createAdminClient();
+  if (!admin) return;
+  const { data: items } = await admin
+    .from("order_items")
+    .select("product_id, quantity")
+    .eq("order_id", orderId);
+
+  for (const item of items ?? []) {
+    const productId = item.product_id as string | null;
+    if (!productId) continue;
+    const { data: product } = await admin
+      .from("products")
+      .select("stock")
+      .eq("id", productId)
+      .maybeSingle();
+    if (!product) continue;
+    await adjustStock(productId, asInt(product.stock) + asInt(item.quantity));
+  }
+}
+
+async function releasePendingOrder(orderId: string) {
+  const admin = createAdminClient();
+  if (!admin) return;
+  const { data: payments } = await admin.from("payments").select("status").eq("order_id", orderId);
+  if ((payments ?? []).some((payment) => payment.status === "success")) return;
+
+  const { data: claimed } = await admin
+    .from("orders")
+    .update({ status: "cancelled" })
+    .eq("id", orderId)
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
+  if (!claimed) return;
+
+  await restoreOrderStock(orderId);
+  await admin.from("payments").update({ status: "failed" }).eq("order_id", orderId).neq("status", "success");
+}
+
+async function releaseMyPendingOrders(userId: string) {
+  const admin = createAdminClient();
+  if (!admin) return;
+  const { data } = await admin.from("orders").select("id").eq("user_id", userId).eq("status", "pending");
+  for (const order of data ?? []) {
+    await releasePendingOrder(order.id as string);
+  }
+}
+
+async function clearCartForOrder(orderId: string) {
+  const admin = createAdminClient();
+  if (!admin) return;
+  const { data: order } = await admin.from("orders").select("user_id").eq("id", orderId).maybeSingle();
+  const userId = order?.user_id as string | undefined;
+  if (!userId) return;
+  await admin.from("cart_items").delete().eq("user_id", userId);
+}
+
+async function beginPaystackPayment(input: {
+  orderId: string;
+  email: string;
+  amountNaira: number;
+  callbackUrl: string;
+}): Promise<{ authorizationUrl: string; accessCode: string; reference: string } | { error: string }> {
+  if (!paystackSecret()) return { error: "Paystack is not configured." };
+  const admin = createAdminClient();
+  if (!admin) return { error: "Missing SUPABASE_SERVICE_ROLE_KEY." };
+
+  const reference = crypto.randomUUID();
+  const { error } = await admin.from("payments").insert({
+    order_id: input.orderId,
+    provider: "paystack",
+    reference,
+    amount: input.amountNaira,
+    status: "initiated",
+  });
+  if (error) return { error: error.message };
+
+  const started = await initializePaystackTransaction({
+    email: input.email,
+    amountKobo: toKobo(input.amountNaira),
+    reference,
+    callbackUrl: input.callbackUrl,
+    orderId: input.orderId,
+  });
+  if ("error" in started) {
+    await admin.from("payments").update({ status: "failed" }).eq("reference", reference);
+    return started;
+  }
+  return { ...started, reference };
+}
+
+async function sendPaidOrderEmail(orderId: string) {
+  const admin = createAdminClient();
+  if (!admin) return;
+
+  const { data: claimed, error: claimError } = await admin
+    .from("orders")
+    .update({ email_sent: true })
+    .eq("id", orderId)
+    .eq("email_sent", false)
+    .select("id, customer_name, customer_email, total_amount, delivery_address");
+
+  if (claimError || !claimed?.length) return;
+  const order = claimed[0] as {
+    customer_name: string;
+    customer_email: string;
+    total_amount: number | string;
+    delivery_address: string | null;
+  };
+
+  const { data: itemRows } = await admin
+    .from("order_items")
+    .select("product_name, quantity, unit_price")
+    .eq("order_id", orderId);
+
+  try {
+    const origin = await requestOrigin();
+    const mailed = await sendMail({
+      to: order.customer_email,
+      ...orderMessage({
+        name: order.customer_name,
+        orderId,
+        total: asMoney(order.total_amount),
+        address: order.delivery_address ?? "",
+        items: (
+          (itemRows ?? []) as {
+            product_name: string;
+            quantity: number;
+            unit_price: number | string;
+          }[]
+        ).map((item) => ({
+          name: item.product_name,
+          quantity: asInt(item.quantity),
+          unitPrice: asMoney(item.unit_price),
+        })),
+        orderUrl: origin ? `${origin}/account/orders/${orderId}` : null,
+      }),
+    });
+    if (!mailed.ok) {
+      console.error("Order confirmation email failed", mailed.error);
+      await admin.from("orders").update({ email_sent: false }).eq("id", orderId);
+    }
+  } catch (error) {
+    console.error(
+      "Order confirmation email failed",
+      error instanceof Error ? error.message : "unknown error",
+    );
+    await admin.from("orders").update({ email_sent: false }).eq("id", orderId);
+  }
+}
+
+export async function settlePaystackReference(reference: string): Promise<
+  | { outcome: "paid" | "failed" | "pending"; orderId: string }
+  | { outcome: "missing" | "unconfigured" | "unavailable" }
+> {
+  if (!isPaystackReference(reference)) return { outcome: "missing" };
+  if (!paystackSecret()) return { outcome: "unconfigured" };
+  const admin = createAdminClient();
+  if (!admin) return { outcome: "unconfigured" };
+
+  const { data, error } = await admin
+    .from("payments")
+    .select("id, order_id, amount, status")
+    .eq("reference", reference)
+    .maybeSingle();
+  if (error) return { outcome: "unavailable" };
+  if (!data) return { outcome: "missing" };
+
+  const payment = data as {
+    id: string;
+    order_id: string;
+    amount: number | string;
+    status: PaymentStatus;
+  };
+  const verified = await verifyPaystackTransaction(reference);
+  if ("error" in verified) {
+    if (verified.unavailable) return { outcome: "unavailable" };
+    if (payment.status !== "success") {
+      await admin.from("payments").update({ status: "failed" }).eq("id", payment.id);
+    }
+    return { outcome: "failed", orderId: payment.order_id };
+  }
+
+  const expected = toKobo(asMoney(payment.amount));
+  const matches =
+    verified.status === "success" &&
+    verified.currency === "NGN" &&
+    verified.amountKobo === expected &&
+    (!verified.orderId || verified.orderId === payment.order_id);
+
+  if (matches) {
+    const { data: paidOrder } = await admin
+      .from("orders")
+      .update({ status: "paid" })
+      .eq("id", payment.order_id)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+    let claimed = Boolean(paidOrder);
+    if (!claimed) {
+      const { data: revived } = await admin
+        .from("orders")
+        .update({ status: "paid" })
+        .eq("id", payment.order_id)
+        .eq("status", "cancelled")
+        .select("id")
+        .maybeSingle();
+      if (revived) {
+        await takeOrderStock(payment.order_id);
+        claimed = true;
+      }
+    }
+    await admin.from("payments").update({ status: "success" }).eq("id", payment.id);
+    if (claimed) {
+      await clearCartForOrder(payment.order_id);
+      const orderId = payment.order_id;
+      after(() => sendPaidOrderEmail(orderId));
+    }
+    return { outcome: "paid", orderId: payment.order_id };
+  }
+
+  if (verified.status === "success") {
+    if (payment.status !== "success") {
+      console.error("Paystack payment did not match this order", reference);
+      await admin.from("payments").update({ status: "failed" }).eq("id", payment.id);
+    }
+    return { outcome: "failed", orderId: payment.order_id };
+  }
+
+  if (verified.status === "abandoned" || verified.status === "failed" || verified.status === "reversed") {
+    if (payment.status !== "success") {
+      await admin.from("payments").update({ status: "failed" }).eq("id", payment.id);
+    }
+    await releasePendingOrder(payment.order_id);
+    return { outcome: "failed", orderId: payment.order_id };
+  }
+
+  return { outcome: "pending", orderId: payment.order_id };
+}
+
+export async function startPaystackPayment(orderId: string): Promise<
+  { error: string } | { authorizationUrl: string; accessCode: string; reference: string }
+> {
+  const order = await getMyOrder(orderId);
+  if (!order) return { error: "Sign in to pay for this order." };
+  if (order.status === "cancelled") return { error: "This order was cancelled." };
+  if (
+    order.status === "paid" ||
+    order.status === "completed" ||
+    order.payments.some((payment) => payment.status === "success")
+  ) {
+    return { error: "This order is already paid." };
+  }
+
+  const origin = await requestOrigin();
+  if (!origin) return { error: "Could not build the Paystack return link." };
+  return beginPaystackPayment({
+    orderId: order.id,
+    email: order.customerEmail,
+    amountNaira: order.total,
+    callbackUrl: paystackCallback(origin),
+  });
+}
+
+export async function abandonUnpaidOrder(orderId: string): Promise<
+  { error: string } | { ok: true; paid: boolean }
+> {
+  const order = await getMyOrder(orderId);
+  if (!order) return { error: "That order could not be found." };
+  if (
+    order.status === "paid" ||
+    order.status === "completed" ||
+    order.payments.some((payment) => payment.status === "success")
+  ) {
+    return { ok: true, paid: true };
+  }
+  if (order.status === "cancelled") return { ok: true, paid: false };
+
+  const reference = [...order.payments].reverse().find((payment) => payment.reference)?.reference;
+  if (reference) {
+    const settled = await settlePaystackReference(reference);
+    if (settled.outcome === "paid") return { ok: true, paid: true };
+  }
+
+  await releasePendingOrder(orderId);
+  return { ok: true, paid: false };
+}
+
 export async function placeOrder(input: PlaceOrderInput): Promise<
   | { error: string }
-  | { id: string; total: number; email: string; provider: PaymentProvider | null }
+  | {
+      id: string;
+      total: number;
+      email: string;
+      authorizationUrl: string;
+      accessCode: string;
+      reference: string;
+    }
 > {
   const supabase = await createClient();
   const {
@@ -206,6 +545,10 @@ export async function placeOrder(input: PlaceOrderInput): Promise<
   if (!isNigerianCapital(city)) return { error: "Choose a state capital." };
   if (!email.includes("@")) return { error: "That email does not look complete." };
   if (input.items.length === 0) return { error: "Your bag is empty." };
+  if (!paystackSecret()) return { error: "Paystack is not configured." };
+  if (!hasServiceRole()) return { error: "Missing SUPABASE_SERVICE_ROLE_KEY." };
+
+  await releaseMyPendingOrders(user.id);
 
   const ids = [...new Set(input.items.map((item) => item.productId))];
   const { data: productRows, error: productError } = await supabase
@@ -277,29 +620,39 @@ export async function placeOrder(input: PlaceOrderInput): Promise<
   );
 
   if (itemsError) {
-    const admin = createAdminClient();
-    if (admin) await admin.from("orders").delete().eq("id", orderId);
+    await discardOrder(orderId);
     return { error: itemsError.message };
   }
 
-  await supabase.from("cart_items").delete().eq("user_id", user.id);
-
-  for (const line of lines) {
-    const nextStock = asInt(line.product!.stock) - line.quantity;
-    await adjustStock(line.product!.id, Math.max(0, nextStock));
+  const origin = await requestOrigin();
+  if (!origin) {
+    await discardOrder(orderId);
+    return { error: "Could not build the Paystack return link." };
   }
 
-  if (input.provider) {
-    const admin = createAdminClient();
-    if (admin) {
-      await admin.from("payments").insert({
-        order_id: orderId,
-        provider: input.provider,
-        amount: total,
-        status: "initiated",
-      });
-    }
+  const started = await beginPaystackPayment({
+    orderId,
+    email,
+    amountNaira: total,
+    callbackUrl: paystackCallback(origin),
+  });
+  if ("error" in started) {
+    await discardOrder(orderId);
+    return started;
   }
 
-  return { id: orderId, total, email, provider: input.provider };
+  await Promise.all(
+    lines.map((line) =>
+      adjustStock(line.product!.id, Math.max(0, asInt(line.product!.stock) - line.quantity)),
+    ),
+  );
+
+  return {
+    id: orderId,
+    total,
+    email,
+    authorizationUrl: started.authorizationUrl,
+    accessCode: started.accessCode,
+    reference: started.reference,
+  };
 }

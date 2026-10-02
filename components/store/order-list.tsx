@@ -33,7 +33,7 @@ export function parseOrderStatus(
 
 export function orderStatusNote(status: OrderStatus) {
   if (status === "pending")
-    return "Placed. Payment is still open, or the shop has not confirmed it yet.";
+    return "Placed. Paystack still needs to confirm the payment.";
   if (status === "paid") return "Payment is in. The shop is getting it ready.";
   if (status === "completed") return "This order is finished.";
   return "This order was cancelled.";

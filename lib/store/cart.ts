@@ -24,6 +24,7 @@ export type CartLine = {
 type CartState = {
   items: CartItem[];
   ready: boolean;
+  syncing: boolean;
   open: boolean;
   addItem: (product: CartDraft, quantity?: number) => void;
   setQuantity: (productId: string, quantity: number) => void;
@@ -31,6 +32,7 @@ type CartState = {
   clear: () => void;
   replaceItems: (items: CartItem[]) => void;
   setReady: (ready: boolean) => void;
+  setSyncing: (syncing: boolean) => void;
   setOpen: (open: boolean) => void;
 };
 
@@ -54,8 +56,10 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       ready: false,
+      syncing: false,
       open: false,
       setReady: (ready) => set({ ready }),
+      setSyncing: (syncing) => set({ syncing }),
       setOpen: (open) => set({ open }),
       replaceItems: (items) => set({ items }),
       addItem: (product, quantity = 1) => {
@@ -124,6 +128,7 @@ export const useCartStore = create<CartState>()(
 export function useCart() {
   const items = useCartStore((state) => state.items);
   const ready = useCartStore((state) => state.ready);
+  const syncing = useCartStore((state) => state.syncing);
   const addItem = useCartStore((state) => state.addItem);
   const setQuantity = useCartStore((state) => state.setQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
@@ -132,7 +137,7 @@ export function useCart() {
   const setOpen = useCartStore((state) => state.setOpen);
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  return { items, count, ready, open, setOpen, addItem, setQuantity, removeItem, clear };
+  return { items, count, ready, syncing, open, setOpen, addItem, setQuantity, removeItem, clear };
 }
 
 export function useCartLines(): CartLine[] {

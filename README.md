@@ -8,8 +8,8 @@ The storefront is public. Signing in is required to place an order, view order h
 
 - Browse the home page, shop, and product pages, and filter by category.
 - Keep a bag in a drawer or on the cart page. A guest bag stays in the browser. A signed-in bag is saved to the account.
-- Check out with a Nigerian city, a delivery address, and a payment choice: pay on delivery, Paystack, Flutterwave, or Stripe.
-- Delivery is free on orders over ₦50,000. Smaller orders include a ₦3,500 fee. Payment is recorded when the order is placed and confirmed afterward.
+- Check out with a Nigerian city and a delivery address, then pay with Paystack.
+- Delivery is free on orders over ₦50,000. Smaller orders include a ₦3,500 fee. The order stays pending until Paystack confirms the payment.
 - Create an account, sign in (including with Google), and reset a password.
 - Review past orders from the account page.
 
@@ -56,9 +56,10 @@ The app expects these environment variables:
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+PAYSTACK_SECRET_KEY=
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` is only needed for admin product writes, image uploads, and order updates. The database is the linked Supabase project: `products`, `cart_items`, `orders`, `order_items`, `payments`, and `profiles`, plus a public `product-images` bucket.
+`SUPABASE_SERVICE_ROLE_KEY` is needed for admin product writes, image uploads, order updates, and Paystack payment rows. `PAYSTACK_SECRET_KEY` starts checkout and verifies the charge. Point the Paystack webhook at `/api/paystack/webhook`. The database is the linked Supabase project: `products`, `cart_items`, `orders`, `order_items`, `payments`, and `profiles`, plus a public `product-images` bucket.
 
 Other scripts:
 

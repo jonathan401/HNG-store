@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { authFieldClass, authSubmitClass } from "@/components/store/auth-page";
 import { useRouter } from "next/navigation";
@@ -41,9 +41,8 @@ export function UpdatePasswordForm({
           <Label htmlFor="password" className="mb-2 block text-store-ink/80">
             New password
           </Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             required
             autoComplete="new-password"
             value={password}

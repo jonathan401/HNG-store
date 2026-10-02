@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { clearMyCart, listMyCart, upsertMyCartItem } from "@/lib/dal/cart-items";
 
 export async function getServerCart() {
@@ -9,7 +8,6 @@ export async function getServerCart() {
 
 export async function setCartItem(productId: string, quantity: number) {
   await upsertMyCartItem(productId, quantity);
-  revalidatePath("/checkout");
 }
 
 export async function removeCartItem(productId: string) {

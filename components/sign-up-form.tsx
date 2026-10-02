@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { signUpWithEmail } from "@/utils/actions/auth.action";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { authFieldClass, authSubmitClass } from "@/components/store/auth-page";
 
@@ -28,7 +29,6 @@ export function SignUpForm({
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const supabase = createClient();
     setIsLoading(true);
     setError(null);
 
@@ -39,14 +39,11 @@ export function SignUpForm({
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/protected`,
-        },
-      });
-      if (error) throw error;
+      const result = await signUpWithEmail({ email, password });
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
       router.push("/auth/sign-up-success");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
@@ -77,9 +74,8 @@ export function SignUpForm({
           <Label htmlFor="password" className="mb-2 block text-store-ink/80">
             Password
           </Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             required
             autoComplete="new-password"
             value={password}
@@ -91,9 +87,8 @@ export function SignUpForm({
           <Label htmlFor="repeat-password" className="mb-2 block text-store-ink/80">
             Repeat password
           </Label>
-          <Input
+          <PasswordInput
             id="repeat-password"
-            type="password"
             required
             autoComplete="new-password"
             value={repeatPassword}

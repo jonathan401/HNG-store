@@ -8,6 +8,7 @@ import { formatPrice } from "@/lib/store/products";
 import { saveOrderStatus, savePaymentStatus } from "@/utils/actions/admin.action";
 import type { OrderStatus, PaymentStatus } from "@/lib/dal/types";
 import { MenuSelect } from "@/components/ui/menu-select";
+import { AdminTableSkeleton } from "@/components/store/skeletons";
 import { ServiceRoleNotice } from "@/components/admin/service-role-notice";
 import { hasServiceRole } from "@/lib/supabase/admin";
 
@@ -95,7 +96,7 @@ async function OrderEditor({ params }: { params: Promise<{ id: string }> }) {
 export default function AdminOrderPage({ params }: { params: Promise<{ id: string }> }) {
   if (!hasServiceRole()) return <ServiceRoleNotice />;
   return (
-    <Suspense fallback={<p className="text-sm">Loading order…</p>}>
+    <Suspense fallback={<AdminTableSkeleton />}>
       <OrderEditor params={params} />
     </Suspense>
   );

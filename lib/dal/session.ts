@@ -20,9 +20,11 @@ export async function getViewer(): Promise<Viewer | null> {
       .eq("id", user.id)
       .maybeSingle();
 
+    const metadataEmail = user.user_metadata?.email;
+
     return {
       id: user.id,
-      email: user.email ?? "",
+      email: user.email || (typeof metadataEmail === "string" ? metadataEmail : ""),
       role: profile?.role ?? "customer",
     };
   } catch {

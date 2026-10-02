@@ -2,12 +2,14 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useCartStore } from "@/lib/store/cart";
 import { useRouter } from "next/navigation";
 
 export function LogoutButton() {
   const router = useRouter();
 
   const logout = async () => {
+    useCartStore.getState().replaceItems([]);
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/auth/login");

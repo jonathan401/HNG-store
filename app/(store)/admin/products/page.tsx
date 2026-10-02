@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { listAllProducts } from "@/lib/dal/products";
 import { asMoney } from "@/lib/dal/types";
 import { formatPrice } from "@/lib/store/products";
+import { AdminTableSkeleton } from "@/components/store/skeletons";
 import { ServiceRoleNotice } from "@/components/admin/service-role-notice";
 import { hasServiceRole } from "@/lib/supabase/admin";
 
@@ -56,7 +57,7 @@ async function ProductTable() {
 export default function AdminProductsPage() {
   if (!hasServiceRole()) return <ServiceRoleNotice />;
   return (
-    <Suspense fallback={<p className="text-sm">Loading products…</p>}>
+    <Suspense fallback={<AdminTableSkeleton />}>
       <ProductTable />
     </Suspense>
   );

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { ProductForm } from "@/components/admin/product-form";
 import { getProductRecord } from "@/lib/dal/products";
 import { removeProduct } from "@/utils/actions/admin.action";
+import { AdminTableSkeleton } from "@/components/store/skeletons";
 import { ServiceRoleNotice } from "@/components/admin/service-role-notice";
 import { hasServiceRole } from "@/lib/supabase/admin";
 
@@ -28,7 +29,7 @@ async function EditProduct({ params }: { params: Promise<{ id: string }> }) {
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   if (!hasServiceRole()) return <ServiceRoleNotice />;
   return (
-    <Suspense fallback={<p className="text-sm">Loading product…</p>}>
+    <Suspense fallback={<AdminTableSkeleton />}>
       <EditProduct params={params} />
     </Suspense>
   );

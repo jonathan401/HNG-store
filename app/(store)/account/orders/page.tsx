@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { OrderList, parseOrderStatus } from "@/components/store/order-list";
+import { OrdersSkeleton } from "@/components/store/skeletons";
 import { listMyOrders } from "@/lib/dal/orders";
 
 export const metadata = {
@@ -19,7 +20,7 @@ async function Orders({
       <p className="text-xs uppercase tracking-[0.18em] text-store-clay">Account</p>
       <h1 className="mt-2 font-display text-5xl">Your orders</h1>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-store-ink/70">
-        Each order keeps what you bought, the delivery address, and whether payment is still open.
+        Each order keeps what you bought, the delivery address, and whether Paystack has confirmed payment.
       </p>
       <OrderList
         orders={orders}
@@ -36,7 +37,7 @@ export default function AccountOrdersPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-3xl px-4 py-16 sm:px-6" />}>
+    <Suspense fallback={<OrdersSkeleton />}>
       <Orders searchParams={searchParams} />
     </Suspense>
   );

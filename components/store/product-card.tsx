@@ -1,24 +1,8 @@
-"use client";
-
 import Link from "next/link";
-import { useState } from "react";
 import { ProductImage } from "@/components/store/product-image";
 import { formatPrice, type Product } from "@/lib/store/products";
-import { useCart } from "@/lib/store/cart";
 
 export function ProductCard({ product }: { product: Product }) {
-  const { addItem, items, setOpen } = useCart();
-  const [added, setAdded] = useState(false);
-  const inBag = items.find((item) => item.productId === product.id);
-  const soldOut = product.stock <= 0;
-
-  function handleAdd() {
-    addItem(product, 1);
-    setOpen(true);
-    setAdded(true);
-    window.setTimeout(() => setAdded(false), 1200);
-  }
-
   return (
     <article className="group flex flex-col">
       <Link href={`/products/${product.id}`} className="block">
@@ -43,20 +27,6 @@ export function ProductCard({ product }: { product: Product }) {
           {product.category}
         </p>
       </Link>
-      <button
-        type="button"
-        onClick={handleAdd}
-        disabled={soldOut}
-        className="mt-3 self-start text-sm underline decoration-store-mist underline-offset-4 transition hover:decoration-store-clay disabled:no-underline disabled:opacity-60"
-      >
-        {soldOut
-          ? "Sold out"
-          : added
-            ? "Added to bag"
-            : inBag
-              ? `In bag · ${inBag.quantity}`
-              : "Add to bag"}
-      </button>
     </article>
   );
 }

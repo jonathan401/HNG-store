@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { listAllOrders } from "@/lib/dal/orders";
 import { listAllProducts } from "@/lib/dal/products";
+import { AdminOverviewSkeleton } from "@/components/store/skeletons";
 import { ServiceRoleNotice } from "@/components/admin/service-role-notice";
 import { hasServiceRole } from "@/lib/supabase/admin";
 
@@ -33,7 +34,7 @@ async function Overview() {
 export default function AdminPage() {
   if (!hasServiceRole()) return <ServiceRoleNotice />;
   return (
-    <Suspense fallback={<p className="text-sm">Loading the desk…</p>}>
+    <Suspense fallback={<AdminOverviewSkeleton />}>
       <Overview />
     </Suspense>
   );

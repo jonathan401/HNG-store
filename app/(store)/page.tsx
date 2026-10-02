@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { HeroBanner, type Slide } from "@/components/store/hero-banner";
+import { HomeSkeleton } from "@/components/store/skeletons";
 import { ProductCard } from "@/components/store/product-card";
 import { ProductImage } from "@/components/store/product-image";
 import { categoriesFrom, type Product } from "@/lib/store/products";
@@ -153,7 +154,7 @@ async function HomeContent() {
 
 export default function HomePage() {
   return (
-    <Suspense fallback={<div className="h-[60vh] min-h-[420px] bg-store-ink md:h-[80vh]" />}>
+    <Suspense fallback={<HomeSkeleton />}>
       <HomeContent />
     </Suspense>
   );

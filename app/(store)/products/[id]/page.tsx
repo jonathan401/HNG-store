@@ -5,6 +5,7 @@ import { RotateCcw, Shield, Truck } from "lucide-react";
 import { ProductCard } from "@/components/store/product-card";
 import { ProductImage } from "@/components/store/product-image";
 import { ProductPurchase } from "@/components/store/product-purchase";
+import { ProductDetailSkeleton } from "@/components/store/skeletons";
 import {
   formatPrice,
   FREE_DELIVERY_THRESHOLD,
@@ -75,7 +76,7 @@ async function ProductDetails({ params }: { params: Promise<Params> }) {
             </p>
             <p className="flex items-center gap-3 text-sm text-store-ink/70">
               <Shield className="size-5 shrink-0" />
-              Pay on delivery, or start a Paystack, Flutterwave, or Stripe payment
+              Pay with Paystack at checkout
             </p>
           </div>
         </div>
@@ -96,7 +97,7 @@ async function ProductDetails({ params }: { params: Promise<Params> }) {
 
 export default function ProductPage({ params }: { params: Promise<Params> }) {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-6xl px-4 py-20 sm:px-6" />}>
+    <Suspense fallback={<ProductDetailSkeleton />}>
       <ProductDetails params={params} />
     </Suspense>
   );

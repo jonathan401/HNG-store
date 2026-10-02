@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
+import { useCartStore } from "@/lib/store/cart";
 
 export function AccountControl({
   email,
@@ -34,6 +35,7 @@ export function AccountControl({
   }
 
   async function signOut() {
+    useCartStore.getState().replaceItems([]);
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/");
