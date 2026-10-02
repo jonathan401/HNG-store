@@ -4,7 +4,7 @@ import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth";
 import { adjustStock } from "@/lib/dal/products";
 import { sendMail } from "@/lib/mail/nodemailer";
-import { orderMessage } from "@/lib/mail/messages";
+import { orderMessage, storeUrl } from "@/lib/mail/messages";
 import { requestOrigin } from "@/lib/mail/origin";
 import {
   initializePaystackTransaction,
@@ -343,7 +343,6 @@ async function sendPaidOrderEmail(orderId: string) {
     .eq("order_id", orderId);
 
   try {
-    const origin = await requestOrigin();
     const mailed = await sendMail({
       to: order.customer_email,
       ...orderMessage({
@@ -362,7 +361,7 @@ async function sendPaidOrderEmail(orderId: string) {
           quantity: asInt(item.quantity),
           unitPrice: asMoney(item.unit_price),
         })),
-        orderUrl: origin ? `${origin}/account/orders/${orderId}` : null,
+        orderUrl: storeUrl(`/account/orders/${orderId}`),
       }),
     });
     if (!mailed.ok) {

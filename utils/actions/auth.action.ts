@@ -2,8 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail } from "@/lib/mail/nodemailer";
-import { confirmLink, recoveryMessage, signupMessage } from "@/lib/mail/messages";
-import { requestOrigin } from "@/lib/mail/origin";
+import { confirmLink, recoveryMessage, signupMessage, STORE_ORIGIN } from "@/lib/mail/messages";
 
 export async function signUpWithEmail(input: {
   email: string;
@@ -16,9 +15,6 @@ export async function signUpWithEmail(input: {
 
   const admin = createAdminClient();
   if (!admin) return { error: "Email sign-up is not available right now." };
-
-  const origin = await requestOrigin();
-  if (!origin) return { error: "Could not build the confirmation link." };
 
   const { data, error } = await admin.auth.admin.generateLink({
     type: "signup",
@@ -36,7 +32,7 @@ export async function signUpWithEmail(input: {
 
   const sent = await sendMail({
     to: email,
-    ...signupMessage(confirmLink(origin, data.properties.hashed_token, "signup", "/")),
+    ...signupMessage(confirmLink(STORE_ORIGIN, data.properties.hashed_token, "signup", "/")),
   });
   if (!sent.ok) {
     if (data.user?.id) await admin.auth.admin.deleteUser(data.user.id);
@@ -53,9 +49,6 @@ export async function requestPasswordReset(email: string): Promise<{ error: stri
   const admin = createAdminClient();
   if (!admin) return { error: "Password reset email is not available right now." };
 
-  const origin = await requestOrigin();
-  if (!origin) return { error: "Could not build the reset link." };
-
   const { data, error } = await admin.auth.admin.generateLink({
     type: "recovery",
     email: normalized,
@@ -70,7 +63,7 @@ export async function requestPasswordReset(email: string): Promise<{ error: stri
   const sent = await sendMail({
     to: normalized,
     ...recoveryMessage(
-      confirmLink(origin, data.properties.hashed_token, "recovery", "/auth/update-password"),
+      confirmLink(STORE_ORIGIN, data.properties.hashed_token, "recovery", "/auth/update-password"),
     ),
   });
   if (!sent.ok) return { error: sent.error };
