@@ -2,19 +2,13 @@
 
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { authFieldClass, authSubmitClass } from "@/components/store/auth-page";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import GoogleIcon from "./ui/icons/GoogleIcon";
 
 export function LoginForm({
   className,
@@ -25,6 +19,30 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
+  const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  const signUpHref =
+    destination === "/" ? "/auth/sign-up" : `/auth/sign-up?next=${encodeURIComponent(destination)}`;
+
+  const handleLoginWithGoogle = async () => {
+    const supabase = createClient();
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`,
+        },
+      });
+      if (error) throw error;
+      router.push(data.url);
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "An error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +56,8 @@ export function LoginForm({
         password,
       });
       if (error) throw error;
-      // Update this route to redirect to an authenticated route. The user already has an active session.
-      router.push("/protected");
+      router.push(destination);
+      router.refresh();
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
@@ -48,63 +66,70 @@ export function LoginForm({
   };
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin}>
-            <div className="flex flex-col gap-6">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                  <Link
-                    href="/auth/forgot-password"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </Link>
-                </div>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Login"}
-              </Button>
-            </div>
-            <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/auth/sign-up"
-                className="underline underline-offset-4"
-              >
-                Sign up
-              </Link>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+    <div className={cn("flex flex-col gap-5", className)} {...props}>
+      <form onSubmit={handleLogin} className="flex flex-col gap-5">
+        <div>
+          <Label htmlFor="email" className="mb-2 block text-store-ink/80">
+            Email
+          </Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@email.com"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={authFieldClass}
+          />
+        </div>
+        <div>
+          <div className="mb-2 flex items-center">
+            <Label htmlFor="password" className="text-store-ink/80">
+              Password
+            </Label>
+            <Link
+              href="/auth/forgot-password"
+              className="ml-auto text-sm text-store-ink/60 underline-offset-4 hover:text-store-ink hover:underline"
+            >
+              Forgot your password?
+            </Link>
+          </div>
+          <Input
+            id="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={authFieldClass}
+          />
+        </div>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <button type="submit" className={authSubmitClass} disabled={isLoading}>
+          {isLoading ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
+      <div className="flex items-center gap-3 text-xs uppercase tracking-[0.16em] text-store-ink/40">
+        <span className="h-px flex-1 bg-store-mist" />
+        or
+        <span className="h-px flex-1 bg-store-mist" />
+      </div>
+      <button
+        type="button"
+        className="flex h-11 w-full items-center justify-center gap-2 border border-store-mist bg-store-sand text-sm hover:border-store-ink disabled:opacity-50"
+        disabled={isLoading}
+        onClick={handleLoginWithGoogle}
+      >
+        <GoogleIcon className="size-4" />
+        Continue with Google
+      </button>
+      <p className="text-center text-sm text-store-ink/70">
+        Don&apos;t have an account?{" "}
+        <Link href={signUpHref} className="text-store-ink underline underline-offset-4">
+          Sign up
+        </Link>
+      </p>
     </div>
   );
 }
