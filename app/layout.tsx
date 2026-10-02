@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Fraunces, Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { CartHydration } from "@/components/store/cart-hydration";
 import "./globals.css";
 
 const defaultUrl = process.env.VERCEL_URL
@@ -9,12 +10,18 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Next.js and Supabase Starter Kit",
-  description: "The fastest way to build apps with Next.js and Supabase",
+  title: "HNG Store",
+  description: "A small shop of goods for daily use.",
 };
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
+  display: "swap",
+  subsets: ["latin"],
+});
+
+const display = Fraunces({
+  variable: "--font-display",
   display: "swap",
   subsets: ["latin"],
 });
@@ -26,13 +33,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} antialiased`}>
+      <body className={`${geistSans.className} ${display.variable} antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
+          <CartHydration />
           {children}
         </ThemeProvider>
       </body>
