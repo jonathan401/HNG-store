@@ -41,6 +41,14 @@ export default {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        store: {
+          sand: "hsl(var(--store-sand))",
+          ink: "hsl(var(--store-ink))",
+          clay: "hsl(var(--store-clay))",
+          moss: "hsl(var(--store-moss))",
+          mist: "hsl(var(--store-mist))",
+          paper: "hsl(var(--store-paper))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -51,6 +59,9 @@ export default {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
+      },
+      fontFamily: {
+        display: ["var(--font-display)", "Georgia", "serif"],
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -29,6 +29,12 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    --store-sand: 36 33% 94%;
+    --store-ink: 30 12% 10%;
+    --store-clay: 18 64% 46%;
+    --store-moss: 152 32% 17%;
+    --store-mist: 36 22% 86%;
+    --store-paper: 40 45% 98%;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -55,6 +61,12 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    --store-sand: 30 8% 7%;
+    --store-ink: 36 24% 93%;
+    --store-clay: 18 70% 62%;
+    --store-moss: 152 24% 72%;
+    --store-mist: 30 6% 18%;
+    --store-paper: 30 8% 11%;
   }
 }
 
@@ -64,5 +76,20 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  a[href],
+  button:not(:disabled),
+  select,
+  summary,
+  label,
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"],
+  [role="option"],
+  [role="tab"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
   }
 }

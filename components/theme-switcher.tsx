@@ -22,7 +22,7 @@ const ThemeSwitcher = () => {
   }, []);
 
   if (!mounted) {
-    return null;
+    return <span className="inline-grid h-10 w-10" aria-hidden />;
   }
 
   const ICON_SIZE = 16;
@@ -30,7 +30,12 @@ const ThemeSwitcher = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size={"sm"}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-full text-store-ink hover:bg-store-mist"
+          aria-label="Theme"
+        >
           {theme === "light" ? (
             <Sun
               key="light"
@@ -52,7 +57,7 @@ const ThemeSwitcher = () => {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-content" align="start">
+      <DropdownMenuContent className="w-content" align="end">
         <DropdownMenuRadioGroup
           value={theme}
           onValueChange={(e) => setTheme(e)}
